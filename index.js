@@ -2,21 +2,21 @@ const TelegramApi = require('node-telegram-bot-api');
 const express = require('express');
 const bodyParser = require('body-parser');
 const Telr = require('./clients/telr');
-const moment = require('moment-timezone');
+const moment = require('moment-timezone'); // moment
 const axios = require('axios');
 const parseString = require('xml2js').parseString;
 
 const app = express();
 app.use(bodyParser.json());
-app.use(bodyParser.text({ type: "*/*" }));
+app.use(bodyParser.text({ type: "*/*" })); // ?
 const bot = new TelegramApi(process.env.TELEGRAM_BOT_TOKEN, { polling: false });
 const telr = new Telr(process.env.AUTH_KEY, process.env.STORE_ID, process.env.CREATE_QUICKLINK_API);
 const botName = process.env.TELEGRAM_BOT_NAME;
 
 // Endpoints
 app.get('/', async (request, response) => {
-  if (!request.query) return response.sendStatus(400);
-  response.send('OK');
+  if (!request.query) return response.sendStatus(400); // delete this
+  response.send('OK'); // ECHO
 })
 
 app.post('/', async (request, response) => {
@@ -24,12 +24,20 @@ app.post('/', async (request, response) => {
     return response.sendStatus(200);
   }
 
+  // const chatId = msg.chat.id;
   const msg = request.body.message;
+  
+  // /\/start/
+  // START_COMMAND_REG
+  // START_COMMAND_REG.test(msg.text)
+  
   if (/\/start/.test(msg.text)) {
-    await bot.sendMessage(msg.chat.id, 'Привет! Я Телеграм бот для генерации qr-кода для оплаты услуг и товаров. Пожалуйста, введите данные в формате "дата(дд.мм)/сумма/имя" для создания ссылки на оплату.');
+    // use chatId
+    await bot.sendMessage(msg.chat.id, 'Привет! Я Телеграм бот для генерации qr-кода для оплаты услуг и товаров. Пожалуйста, введите данные в формате "дата(дд.мм)/сумма/имя" для создания ссылки на оплату.'); // .env
     return response.sendStatus(200);
   }
 
+  // START_COMMAND_REG
   if (RegExp(/\b\s\d{1,2}\.\d{1,2}\/[+-]?([0-9]*[.,])?[0-9]+\/[A-zА-я]+/g).test(msg.text)) {
     const chatId = msg.chat.id;
     const data = msg.text.split(' ');
@@ -51,10 +59,15 @@ app.post('/', async (request, response) => {
     if (+amount < 0) {
       return await bot.sendMessage(chatId, 'Сумма платежа не может быть меньше 0!');
     }
+    
+    /*if (!amount.includes('.")) {
+    
+    }*/
     if (amount.includes(',')) {
       return await bot.sendMessage(chatId, `Указанная сумма должна быть разделена точкой, а не запятой (${amount.replace(',', '.')})`);
     }
 
+    // const
     let qlData = await telr.createQuickLink([date, amount, name]);
     let opts = { 'caption': qlData.url.replace('_', '\\_'), 'parse_mode': 'markdown' }; // The '_' character must be escaped, otherwise there will be an error
     await bot.sendPhoto(chatId, qlData.qrCode, opts);
@@ -66,7 +79,8 @@ app.post('/', async (request, response) => {
 });
 
 app.post('/payment_gate', async (request, response) => {
-  if (!request.body) return response.sendStatus(400);
+  if (!request.body) return response.sendStatus(400); // 200
+  
   const data = request.body.split('&');
   let ref = '';
   data.forEach(el => {
@@ -75,6 +89,8 @@ app.post('/payment_gate', async (request, response) => {
       ref = el.split('=')[1];
     }
   });
+  
+  // to migrate into telr client 
   const getTranInfo = await axios.get(`https://secure.telr.com/tools/api/xml/transaction/${ref}`, {
     headers: {
       'Authorization': process.env.AUTHORIZATION_TOKEN
@@ -85,6 +101,10 @@ app.post('/payment_gate', async (request, response) => {
     let srcDate = moment.tz(trc.transaction.date[0], "Asia/Dubai");
     let serverDate = srcDate.format('YYYY-MM-DD HH:mm:ss');
     let status = '';
+    
+    
+    // as function in telr client
+    // telr.defineTransactionStatus(trc.transaction.auth[0].status[0]): string
     switch (trc.transaction.auth[0].status[0]) {
       case 'A':
         status = 'Успешная оплата';
@@ -105,4 +125,5 @@ app.post('/payment_gate', async (request, response) => {
 })
 
 // Express server logic
+// .env
 app.listen(3000, async () => console.log(`App listening on port ${process.env.EXPRESS_PORT}`))
